@@ -10,6 +10,22 @@ spring:
         "[spring.json.value.default.type]": info.mouts.orderservice.dto.OrderRequestDTO
         "[spring.json.use.type.headers]": false
       auto-offset-reset: earliest
+  datasource:
+    url: jdbc:postgresql://localhost:5432/orders_db
+    username: mouts_user
+    password: mouts_password
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        "[format_sql]": true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          lob:
+            "[non_contextual_creation]": true
 
 app:
   kafka:
