@@ -1,0 +1,16 @@
+spring:
+  kafka:
+    consumer:
+      bootstrap-servers: localhost:9092
+      group-id: order-service-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        "[spring.json.trusted.packages]": info.mouts.orderservice.dto
+        "[spring.json.value.default.type]": info.mouts.orderservice.dto.OrderRequestDTO
+        "[spring.json.use.type.headers]": false
+      auto-offset-reset: earliest
+
+app:
+  kafka:
+    orders-received-topic: orders.received.v1
