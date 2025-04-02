@@ -10,6 +10,14 @@ spring:
         "[spring.json.value.default.type]": info.mouts.orderservice.dto.OrderRequestDTO
         "[spring.json.use.type.headers]": false
       auto-offset-reset: earliest
+    producer:
+      bootstrap-servers: ${spring.kafka.consumer.bootstrap-servers}
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        "[spring.json.trusted.packages]": info.mouts.orderservice.dto
+        "[spring.json.use.type.headers]": false
+
   datasource:
     url: jdbc:postgresql://localhost:5432/orders_db
     username: mouts_user
@@ -44,3 +52,4 @@ springdoc:
 app:
   kafka:
     orders-received-topic: orders.received.v1
+    dlt-orders-topic: orders.dlt.v1
