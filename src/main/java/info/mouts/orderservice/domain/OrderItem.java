@@ -1,5 +1,6 @@
 package info.mouts.orderservice.domain;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.UUID;
 
@@ -38,7 +39,7 @@ import lombok.EqualsAndHashCode;
 @Table(name = "order_items", indexes = {
         @Index(name = "idx_orderitem_product_id", columnList = "productId")
 })
-public class OrderItem {
+public class OrderItem implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
