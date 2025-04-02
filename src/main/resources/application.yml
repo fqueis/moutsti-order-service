@@ -1,4 +1,7 @@
 spring:
+  application:
+    name: orders-service
+
   kafka:
     consumer:
       bootstrap-servers: localhost:9092
@@ -54,3 +57,18 @@ app:
     orders-received-topic: orders.received.v1
     dlt-orders-topic: orders.dlt.v1
     orders-processed-topic: orders.processed.v1
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}

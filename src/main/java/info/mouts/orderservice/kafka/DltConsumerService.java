@@ -7,7 +7,6 @@ import java.util.Optional;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.header.Headers;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
@@ -20,42 +19,63 @@ import info.mouts.orderservice.dto.OrderRequestDTO;
 import info.mouts.orderservice.mapper.OrderMapper;
 import info.mouts.orderservice.repository.OrderRepository;
 import info.mouts.orderservice.util.KafkaUtils;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 
 @Service
 @Slf4j
 public class DltConsumerService {
-    @Autowired
-    private OrderRepository orderRepository;
+    private final OrderRepository orderRepository;
+    private final ObjectMapper objectMapper;
+    private final OrderMapper orderMapper;
+    private final MeterRegistry meterRegistry;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+    private Counter dltMessagesReceivedCounter;
+    private Counter dltOrdersMarkedFailedCounter;
+    private Counter dltDbErrorsCounter;
+    private Counter dltProcessingErrorsCounter;
+    private Timer dltProcessingTimer;
 
-    @Autowired
-    private OrderMapper orderMapper;
+    public DltConsumerService(OrderRepository orderRepository, ObjectMapper objectMapper, OrderMapper orderMapper,
+            MeterRegistry meterRegistry) {
+        this.orderRepository = orderRepository;
+        this.objectMapper = objectMapper;
+        this.orderMapper = orderMapper;
+        this.meterRegistry = meterRegistry;
+
+        initializeMetrics(meterRegistry);
+    }
 
     @KafkaListener(topics = "${app.kafka.dlt-orders-topic}", groupId = "${spring.kafka.consumer.group-id}-dlt", containerFactory = "dltKafkaListenerContainerFactory")
     public void listen(ConsumerRecord<String, byte[]> consumerRecord) {
+        dltMessagesReceivedCounter.increment();
+
         try {
-            log.error("Received a message from DLT to process");
+            dltProcessingTimer.record(() -> {
+                log.error("Received a message from DLT to process");
 
-            String idempotencyKey = getIdempotencyKeyFromHeaders(consumerRecord);
+                String idempotencyKey = getIdempotencyKeyFromHeaders(consumerRecord);
 
-            if (idempotencyKey == null) {
-                log.error(
-                        "Cannot attempt to mark order as failed because idempotency key was not found in DLT message headers.");
-                return;
-            }
+                if (idempotencyKey == null) {
+                    log.error(
+                            "Cannot attempt to mark order as failed because idempotency key was not found in DLT message headers.");
+                    return;
+                }
 
-            OrderRequestDTO dto = tryToDeserializePayload(consumerRecord.value());
-
-            String failureReason = getFailureReasonFromHeaders(consumerRecord.headers());
-
-            tryToMarkOrderAsFailed(idempotencyKey, dto, failureReason);
+                OrderRequestDTO dto = tryToDeserializePayload(consumerRecord.value());
+                String failureReason = getFailureReasonFromHeaders(consumerRecord.headers());
+                tryToMarkOrderAsFailed(idempotencyKey, dto, failureReason);
+            });
         } catch (Exception e) {
-            log.error("CRITICAL FAILURE processing DLT message. Message will be skipped. Record: {}, Error: {}",
+            log.error(
+                    "CRITICAL FAILURE processing DLT message (outside timed block or rethrown). Record: {}, Error: {}",
                     consumerRecord, e.getMessage(), e);
+            dltProcessingErrorsCounter.increment();
+        } finally {
+            log.debug("Finished processing DLT message for key {}", consumerRecord.key());
         }
     }
 
@@ -95,6 +115,7 @@ public class DltConsumerService {
 
                     orderRepository.save(order);
                     log.info("Marked existing order with key {} as FAILED.", idempotencyKey);
+                    dltOrdersMarkedFailedCounter.increment();
                 } else {
                     log.warn(
                             "Order with key {} already in terminal status {} or completed status {}. Not marking as FAILED.",
@@ -118,6 +139,7 @@ public class DltConsumerService {
 
                 orderRepository.save(failedOrder);
                 log.info("Created new order record with key {} in FAILED status.", idempotencyKey);
+                dltOrdersMarkedFailedCounter.increment();
             } else {
                 // Do not find an existing order and we could not parse the DTO. Only log.
                 log.error("Order with key {} not found and DTO could not be parsed. Cannot update status.",
@@ -126,9 +148,11 @@ public class DltConsumerService {
         } catch (DataAccessException dbEx) {
             log.error("Database error while trying to mark order key {} as FAILED: {}", idempotencyKey,
                     dbEx.getMessage(), dbEx);
+            dltDbErrorsCounter.increment();
         } catch (Exception ex) {
             log.error("Unexpected error while trying to mark order key {} as FAILED: {}", idempotencyKey,
                     ex.getMessage(), ex);
+            dltProcessingErrorsCounter.increment();
         }
     }
 
@@ -159,5 +183,24 @@ public class DltConsumerService {
         }
 
         return null;
+    }
+
+    private void initializeMetrics(MeterRegistry registry) {
+        this.dltMessagesReceivedCounter = Counter.builder("orders.dlt.messages.received")
+                .description("Total number of messages received on the DLT")
+                .register(meterRegistry);
+        this.dltOrdersMarkedFailedCounter = Counter.builder("orders.dlt.orders.marked.failed")
+                .description("Total number of orders successfully marked as FAILED from DLT")
+                .register(meterRegistry);
+        this.dltDbErrorsCounter = Counter.builder("orders.dlt.db.errors")
+                .description("Total number of database errors during DLT processing")
+                .register(meterRegistry);
+        this.dltProcessingErrorsCounter = Counter.builder("orders.dlt.processing.errors")
+                .description("Total number of unexpected errors during DLT processing")
+                .register(meterRegistry);
+        this.dltProcessingTimer = Timer.builder("orders.dlt.processing.time")
+                .description("Time taken to process a DLT message")
+                .publishPercentiles(0.5, 0.95)
+                .register(meterRegistry);
     }
 }
