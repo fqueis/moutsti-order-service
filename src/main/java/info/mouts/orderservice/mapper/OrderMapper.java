@@ -10,7 +10,9 @@ import org.mapstruct.factory.Mappers;
 import info.mouts.orderservice.domain.Order;
 import info.mouts.orderservice.domain.OrderItem;
 import info.mouts.orderservice.dto.OrderItemRequestDTO;
+import info.mouts.orderservice.dto.OrderItemResponseDTO;
 import info.mouts.orderservice.dto.OrderRequestDTO;
+import info.mouts.orderservice.dto.OrderResponseDTO;
 
 @Mapper(componentModel = "spring")
 public interface OrderMapper {
@@ -32,6 +34,14 @@ public interface OrderMapper {
             @Mapping(target = "version", ignore = true),
             @Mapping(source = "items", target = "items")
     })
-
     Order toEntity(OrderRequestDTO dto);
+
+    List<OrderResponseDTO> toOrderResponseDtoList(List<Order> entityList);
+
+    OrderItemResponseDTO toOrderItemResponseDto(OrderItem entity);
+
+    List<OrderItemResponseDTO> toOrderItemResponseDtoList(List<OrderItem> entityList);
+
+    @Mapping(source = "updatedAt", target = "processedAt")
+    OrderResponseDTO toOrderResponseDto(Order entity);
 }
