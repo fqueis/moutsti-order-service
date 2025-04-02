@@ -1,5 +1,6 @@
 package info.mouts.orderservice.domain;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -49,7 +50,7 @@ import lombok.ToString;
         @Index(name = "idx_order_idempotency_key", columnList = "idempotency_key", unique = true),
         @Index(name = "idx_order_status", columnList = "status")
 })
-public class Order {
+public class Order implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
