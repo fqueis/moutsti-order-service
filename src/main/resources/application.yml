@@ -31,6 +31,9 @@ spring:
       host: localhost
       port: 6379
 
+springdoc:
+  override-with-generic-response: false
+
 app:
   kafka:
     orders-received-topic: orders.received.v1
