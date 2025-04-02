@@ -31,6 +31,13 @@ spring:
       host: localhost
       port: 6379
 
+  cache:
+    type: redis
+    redis:
+      time-to-live: 10m
+      use-key-prefix: true
+      cache-null-values: false
+
 springdoc:
   override-with-generic-response: false
 
