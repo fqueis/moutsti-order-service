@@ -9,9 +9,12 @@ import static org.mockito.Mockito.when;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,12 +27,17 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import info.mouts.orderservice.domain.Order;
 import info.mouts.orderservice.domain.OrderItem;
 import info.mouts.orderservice.domain.OrderStatus;
 import info.mouts.orderservice.dto.OrderItemRequestDTO;
 import info.mouts.orderservice.dto.OrderRequestDTO;
+import info.mouts.orderservice.exception.OrderNotFoundException;
 import info.mouts.orderservice.mapper.OrderMapper;
 import info.mouts.orderservice.repository.OrderRepository;
 
@@ -38,6 +46,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
+@Slf4j
 public class OrderServiceImplTest {
     @Mock
     private OrderRepository orderRepository;
@@ -157,5 +166,109 @@ public class OrderServiceImplTest {
         verify(orderRepository, times(1)).save(orderCaptor.capture());
         Order orderAttemptedToSave = orderCaptor.getValue();
         assertThat(orderAttemptedToSave.getStatus()).isEqualTo(OrderStatus.PROCESSED);
+    }
+
+    @Test
+    @DisplayName("Should return order when found by ID")
+    void findByOrderId_found() {
+        UUID existingOrderId = savedOrder.getId();
+        when(orderRepository.findById(existingOrderId)).thenReturn(Optional.of(savedOrder));
+
+        Order foundOrder = orderService.findByOrderId(existingOrderId);
+
+        assertThat(foundOrder).isNotNull();
+        assertThat(foundOrder.getId()).isEqualTo(existingOrderId);
+        assertThat(foundOrder).isEqualTo(savedOrder);
+
+        verify(orderRepository, times(1)).findById(existingOrderId);
+    }
+
+    @Test
+    @DisplayName("Should throw OrderNotFoundException when order ID does not exist")
+    void findByOrderId_notFound() {
+        UUID nonExistentOrderId = UUID.randomUUID();
+        when(orderRepository.findById(nonExistentOrderId)).thenReturn(Optional.empty());
+
+        OrderNotFoundException thrown = assertThrows(OrderNotFoundException.class, () -> {
+            orderService.findByOrderId(nonExistentOrderId);
+        });
+
+        assertThat(thrown.getMessage()).contains(nonExistentOrderId.toString());
+        verify(orderRepository, times(1)).findById(nonExistentOrderId);
+    }
+
+    @Test
+    @DisplayName("Should return list of all orders")
+    void findAll_returnsList() {
+        Order order1 = new Order();
+        order1.setId(UUID.randomUUID());
+        Order order2 = new Order();
+        order2.setId(UUID.randomUUID());
+        List<Order> orderList = Arrays.asList(order1, order2);
+
+        when(orderRepository.findAll()).thenReturn(orderList);
+
+        List<Order> result = orderService.findAll();
+
+        assertThat(result).isNotNull();
+        assertThat(result).hasSize(2);
+        assertThat(result).containsExactly(order1, order2);
+
+        verify(orderRepository, times(1)).findAll();
+    }
+
+    @Test
+    @DisplayName("Should return empty list when no orders exist")
+    void findAll_returnsEmptyList() {
+        when(orderRepository.findAll()).thenReturn(Collections.emptyList());
+
+        List<Order> result = orderService.findAll();
+
+        assertThat(result).isNotNull();
+        assertThat(result).isEmpty();
+
+        verify(orderRepository, times(1)).findAll();
+    }
+
+    @Test
+    @DisplayName("Should return page of orders")
+    void findAll_paginated_returnsPage() {
+        Order order1 = new Order();
+        order1.setId(UUID.randomUUID());
+        List<Order> orderList = Collections.singletonList(order1);
+        Pageable pageable = PageRequest.of(0, 1);
+        Page<Order> orderPage = new PageImpl<>(orderList, pageable, 1);
+
+        when(orderRepository.findAll(any(Pageable.class))).thenReturn(orderPage);
+
+        Page<Order> result = orderService.findAll(pageable);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().getFirst()).isEqualTo(order1);
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        assertThat(result.getTotalPages()).isEqualTo(1);
+        assertThat(result.getNumber()).isEqualTo(0);
+
+        verify(orderRepository, times(1)).findAll(pageable);
+    }
+
+    @Test
+    @DisplayName("Should return empty page when no orders exist for the page")
+    void findAll_paginated_returnsEmptyPage() {
+        Pageable pageable = PageRequest.of(1, 5);
+        Page<Order> emptyPage = new PageImpl<>(Collections.emptyList(), pageable, 0);
+
+        when(orderRepository.findAll(any(Pageable.class))).thenReturn(emptyPage);
+
+        Page<Order> result = orderService.findAll(pageable);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getContent()).isEmpty();
+        assertThat(result.getTotalElements()).isEqualTo(0);
+        assertThat(result.getTotalPages()).isEqualTo(0);
+        assertThat(result.getNumber()).isEqualTo(1);
+
+        verify(orderRepository, times(1)).findAll(pageable);
     }
 }

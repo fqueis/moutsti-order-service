@@ -1,14 +1,19 @@
 package info.mouts.orderservice.service.impl;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.UUID;
 
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import info.mouts.orderservice.domain.Order;
 import info.mouts.orderservice.domain.OrderStatus;
 import info.mouts.orderservice.dto.OrderRequestDTO;
+import info.mouts.orderservice.exception.OrderNotFoundException;
 import info.mouts.orderservice.mapper.OrderMapper;
 import info.mouts.orderservice.repository.OrderRepository;
 import info.mouts.orderservice.service.OrderService;
@@ -65,6 +70,34 @@ public class OrderServiceImpl implements OrderService {
             log.error("Failed to save processed order for key {}: {}", idempotencyKey, e.getMessage(), e);
             throw e;
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Order findByOrderId(UUID orderId) {
+        log.debug("Attempting to find order by ID: {}", orderId);
+
+        return orderRepository.findById(orderId)
+                .orElseThrow(() -> {
+                    log.warn("Order not found for ID: {}", orderId);
+                    return new OrderNotFoundException(orderId);
+                });
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Order> findAll() {
+        log.debug("Attempting to find all orders");
+
+        return orderRepository.findAll();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Order> findAll(Pageable pageable) {
+        log.debug("Attempting to find all orders with pagination: {}", pageable);
+
+        return orderRepository.findAll(pageable);
     }
 
     /**
