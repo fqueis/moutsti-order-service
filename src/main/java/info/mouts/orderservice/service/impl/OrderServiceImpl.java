@@ -81,7 +81,7 @@ public class OrderServiceImpl implements OrderService {
     @Transactional(readOnly = true)
     @Cacheable(key = "#orderId")
     public Order findByOrderId(UUID orderId) {
-        log.debug("Attempting to find order by ID: {}", orderId);
+        log.info("Cache miss, attempting to find order by ID from database: {}", orderId);
 
         return orderRepository.findById(orderId)
                 .orElseThrow(() -> {

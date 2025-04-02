@@ -27,7 +27,7 @@ public class OrderItemServiceImpl implements OrderItemService {
     @Transactional(readOnly = true)
     @Cacheable(cacheNames = "order::items", key = "#orderId")
     public List<OrderItem> findOrderItemsByOrderId(UUID orderId) {
-        log.debug("Attempting to find order items for the order with ID: {}", orderId);
+        log.info("Cache miss, attempting to find order items for the order with ID: {}", orderId);
 
         return orderItemRepository.findByOrder_Id(orderId);
     }
@@ -36,6 +36,8 @@ public class OrderItemServiceImpl implements OrderItemService {
     @Transactional(readOnly = true)
     @Cacheable(cacheNames = "order::item", key = "#itemId")
     public OrderItem findById(UUID itemId) {
+        log.info("Cache miss, attempting to find order item by ID from database: {}", itemId);
+
         return orderItemRepository.findById(itemId).orElseThrow(() -> new OrderItemNotFoundException(itemId));
     }
 
