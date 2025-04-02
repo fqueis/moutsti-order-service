@@ -4,6 +4,9 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.cache.annotation.CacheConfig;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -21,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Service
 @Slf4j
+@CacheConfig(cacheNames = "order")
 public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
@@ -33,6 +37,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
+    @CachePut(key = "#result.id")
     public Order processIncomingOrder(OrderRequestDTO request, String idempotencyKey) {
         log.info("Processing incoming order for idempotency key: {}", idempotencyKey);
 
@@ -74,6 +79,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(key = "#orderId")
     public Order findByOrderId(UUID orderId) {
         log.debug("Attempting to find order by ID: {}", orderId);
 

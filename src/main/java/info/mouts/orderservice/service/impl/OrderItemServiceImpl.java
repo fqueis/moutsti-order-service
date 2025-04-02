@@ -3,6 +3,7 @@ package info.mouts.orderservice.service.impl;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +25,7 @@ public class OrderItemServiceImpl implements OrderItemService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "order::items", key = "#orderId")
     public List<OrderItem> findOrderItemsByOrderId(UUID orderId) {
         log.debug("Attempting to find order items for the order with ID: {}", orderId);
 
@@ -32,6 +34,7 @@ public class OrderItemServiceImpl implements OrderItemService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "order::item", key = "#itemId")
     public OrderItem findById(UUID itemId) {
         return orderItemRepository.findById(itemId).orElseThrow(() -> new OrderItemNotFoundException(itemId));
     }
