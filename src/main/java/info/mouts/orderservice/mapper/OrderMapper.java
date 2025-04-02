@@ -32,7 +32,8 @@ public interface OrderMapper {
             @Mapping(target = "createdAt", ignore = true),
             @Mapping(target = "updatedAt", ignore = true),
             @Mapping(target = "version", ignore = true),
-            @Mapping(source = "items", target = "items")
+            @Mapping(source = "items", target = "items"),
+            @Mapping(target = "failureReason", ignore = true)
     })
     Order toEntity(OrderRequestDTO dto);
 
