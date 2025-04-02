@@ -18,6 +18,10 @@ public class KafkaUtils {
     public static final Duration PROCESSING_TTL = Duration.ofHours(1);
     public static final Duration PROCESSED_TTL = Duration.ofDays(1);
 
+    public static final String DLT_EXCEPTION_FQCN_HEADER = "kafka_dlt-exception-fqcn";
+    public static final String DLT_EXCEPTION_MESSAGE_HEADER = "kafka_dlt-exception-message";
+    public static final String DLT_EXCEPTION_STACKTRACE_HEADER = "kafka_dlt-exception-stacktrace";
+
     public static OrderRequestDTO createFakeOrderRequestDTO(String productId, int quantity) {
         OrderRequestDTO dto = new OrderRequestDTO();
 

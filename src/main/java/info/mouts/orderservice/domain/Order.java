@@ -85,6 +85,9 @@ public class Order implements Serializable {
     @Version
     private long version;
 
+    @Column(name = "failure_reason")
+    private String failureReason;
+
     /**
      * Adds an {@link OrderItem} to the order's item list and sets the bidirectional
      * relationship.

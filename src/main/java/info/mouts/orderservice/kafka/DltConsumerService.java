@@ -1,10 +1,12 @@
 package info.mouts.orderservice.kafka;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.header.Header;
+import org.apache.kafka.common.header.Headers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -48,7 +50,9 @@ public class DltConsumerService {
 
             OrderRequestDTO dto = tryToDeserializePayload(consumerRecord.value());
 
-            tryToMarkOrderAsFailed(idempotencyKey, dto, consumerRecord.key());
+            String failureReason = getFailureReasonFromHeaders(consumerRecord.headers());
+
+            tryToMarkOrderAsFailed(idempotencyKey, dto, failureReason);
         } catch (Exception e) {
             log.error("CRITICAL FAILURE processing DLT message. Message will be skipped. Record: {}, Error: {}",
                     consumerRecord, e.getMessage(), e);
@@ -77,7 +81,7 @@ public class DltConsumerService {
     }
 
     @Transactional
-    void tryToMarkOrderAsFailed(String idempotencyKey, OrderRequestDTO dto, String errorType) {
+    void tryToMarkOrderAsFailed(String idempotencyKey, OrderRequestDTO dto, String failureReason) {
         try {
             // Try to find the order by idempotency key first
             Optional<Order> existingOrderOpt = orderRepository.findByIdempotencyKey(idempotencyKey);
@@ -87,7 +91,7 @@ public class DltConsumerService {
 
                 if (order.getStatus() == OrderStatus.RECEIVED || order.getStatus() == OrderStatus.PROCESSING) {
                     order.setStatus(OrderStatus.FAILED);
-                    order.setFailureReason(errorType);
+                    order.setFailureReason(failureReason);
 
                     orderRepository.save(order);
                     log.info("Marked existing order with key {} as FAILED.", idempotencyKey);
@@ -105,7 +109,7 @@ public class DltConsumerService {
                 failedOrder.setIdempotencyKey(idempotencyKey);
                 failedOrder.setStatus(OrderStatus.FAILED);
                 failedOrder.setTotal(BigDecimal.ZERO);
-                failedOrder.setFailureReason(errorType);
+                failedOrder.setFailureReason(failureReason);
 
                 // Associate items, if there are any
                 if (failedOrder.getItems() != null) {
@@ -126,5 +130,34 @@ public class DltConsumerService {
             log.error("Unexpected error while trying to mark order key {} as FAILED: {}", idempotencyKey,
                     ex.getMessage(), ex);
         }
+    }
+
+    private String getFailureReasonFromHeaders(Headers headers) {
+        String exceptionMessage = getHeaderValue(headers, KafkaUtils.DLT_EXCEPTION_MESSAGE_HEADER);
+        String exceptionFqcn = getHeaderValue(headers, KafkaUtils.DLT_EXCEPTION_FQCN_HEADER);
+
+        if (exceptionMessage != null && !exceptionMessage.isBlank()) {
+            String reason = exceptionMessage;
+
+            if (exceptionFqcn != null) {
+                reason = exceptionFqcn + ": " + reason;
+            }
+            return reason;
+
+        } else if (exceptionFqcn != null) {
+            return exceptionFqcn;
+        } else {
+            return "Unknown DLT Failure (Missing Exception Headers)";
+        }
+    }
+
+    private String getHeaderValue(Headers headers, String headerKey) {
+        Header header = headers.lastHeader(headerKey);
+
+        if (header != null && header.value() != null) {
+            return new String(header.value(), StandardCharsets.UTF_8);
+        }
+
+        return null;
     }
 }
