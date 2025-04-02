@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.springframework.cache.annotation.CacheConfig;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import info.mouts.orderservice.domain.Order;
 import info.mouts.orderservice.domain.OrderStatus;
 import info.mouts.orderservice.dto.OrderRequestDTO;
+import info.mouts.orderservice.event.OrderProcessedEvent;
 import info.mouts.orderservice.exception.OrderNotFoundException;
 import info.mouts.orderservice.mapper.OrderMapper;
 import info.mouts.orderservice.repository.OrderRepository;
@@ -29,10 +31,13 @@ public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
     private final OrderMapper orderMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public OrderServiceImpl(OrderRepository orderRepository, OrderMapper orderMapper) {
+    public OrderServiceImpl(OrderRepository orderRepository, OrderMapper orderMapper,
+            ApplicationEventPublisher eventPublisher) {
         this.orderRepository = orderRepository;
         this.orderMapper = orderMapper;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -66,6 +71,13 @@ public class OrderServiceImpl implements OrderService {
             Order savedOrder = orderRepository.save(order);
             log.info("Order successfully processed and saved with ID {} for key {}", savedOrder.getId(),
                     idempotencyKey);
+
+            log.debug("Publishing a processed order event for Order ID: {}", savedOrder.getId());
+
+            OrderProcessedEvent event = new OrderProcessedEvent(this, savedOrder);
+            eventPublisher.publishEvent(event);
+
+            log.debug("Processed order event published for Order ID: {}", savedOrder.getId());
 
             return savedOrder;
         } catch (DataIntegrityViolationException e) {

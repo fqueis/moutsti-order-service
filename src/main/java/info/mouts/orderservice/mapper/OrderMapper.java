@@ -11,6 +11,7 @@ import info.mouts.orderservice.domain.Order;
 import info.mouts.orderservice.domain.OrderItem;
 import info.mouts.orderservice.dto.OrderItemRequestDTO;
 import info.mouts.orderservice.dto.OrderItemResponseDTO;
+import info.mouts.orderservice.dto.OrderProcessedEventDTO;
 import info.mouts.orderservice.dto.OrderRequestDTO;
 import info.mouts.orderservice.dto.OrderResponseDTO;
 
@@ -45,4 +46,11 @@ public interface OrderMapper {
 
     @Mapping(source = "updatedAt", target = "processedAt")
     OrderResponseDTO toOrderResponseDto(Order entity);
+
+    @Mappings({
+            @Mapping(source = "id", target = "orderId"),
+            @Mapping(source = "updatedAt", target = "processedAt")
+    })
+    OrderProcessedEventDTO toProcessedEventDto(Order entity);
+
 }
