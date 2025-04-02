@@ -42,7 +42,7 @@ public class KafkaConsumerService {
 
         Boolean lockAcquired = redisTemplate.opsForValue().setIfAbsent(redisKey, PROCESSING_STATUS, PROCESSING_TTL);
 
-        if (!lockAcquired) {
+        if (Boolean.FALSE.equals(lockAcquired)) {
             handleExistingKey(idempotencyKey, redisKey);
             return;
         }
