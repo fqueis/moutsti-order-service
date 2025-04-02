@@ -53,3 +53,4 @@ app:
   kafka:
     orders-received-topic: orders.received.v1
     dlt-orders-topic: orders.dlt.v1
+    orders-processed-topic: orders.processed.v1
