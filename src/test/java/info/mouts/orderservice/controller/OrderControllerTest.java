@@ -20,6 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import info.mouts.orderservice.domain.Order;
 import info.mouts.orderservice.domain.OrderItem;
 import info.mouts.orderservice.dto.OrderResponseDTO;
+import info.mouts.orderservice.exception.OrderItemNotFoundException;
 import info.mouts.orderservice.exception.OrderNotFoundException;
 import info.mouts.orderservice.mapper.OrderMapper;
 import info.mouts.orderservice.service.OrderItemService;
@@ -183,6 +184,101 @@ public class OrderControllerTest {
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.title", is("Invalid UUID")))
                     .andExpect(jsonPath("$.detail", containsString(invalidOrderId)));
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /orders/{orderId}/items/{itemId} Endpoint")
+    class GetOrderItemByIdTests {
+
+        @Test
+        @DisplayName("Should return 200 OK with OrderItemResponseDTO and HATEOAS links when item exists for the order")
+        void findOrderItem_whenExists_shouldReturnDtoWithLinks() throws Exception {
+            UUID orderId = UUID.randomUUID();
+            UUID itemId = UUID.randomUUID();
+
+            OrderItem foundItem = OrderItem.builder()
+                    .id(itemId)
+                    .productId("PROD-XYZ")
+                    .quantity(3)
+                    .price(new BigDecimal("25.50"))
+                    .order(Order.builder().id(orderId).build())
+                    .build();
+
+            OrderItemResponseDTO responseDto = OrderItemResponseDTO.builder()
+                    .productId("PROD-XYZ")
+                    .quantity(3)
+                    .price(new BigDecimal("25.50"))
+                    .build();
+
+            given(orderItemService.findByOrderIdAndItemId(orderId, itemId)).willReturn(foundItem);
+            given(orderMapper.toOrderItemResponseDto(any(OrderItem.class))).willReturn(responseDto);
+
+            String selfLink = String.format("%s/%s/items/%s", BASE_API_URL, orderId, itemId);
+            String orderLink = String.format("%s/%s", BASE_API_URL, orderId);
+            String itemsLink = String.format("%s/%s/items", BASE_API_URL, orderId);
+
+            mockMvc.perform(get(BASE_API_URL + "/{orderId}/items/{itemId}", orderId, itemId))
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentType(MediaTypes.HAL_JSON))
+                    .andExpect(jsonPath("$.productId", is("PROD-XYZ")))
+                    .andExpect(jsonPath("$.quantity", is(3)))
+                    .andExpect(jsonPath("$.price", is(25.50)))
+                    .andExpect(jsonPath("$._links.self.href", endsWith(selfLink)))
+                    .andExpect(jsonPath("$._links.order.href", endsWith(orderLink)))
+                    .andExpect(jsonPath("$._links.items.href", endsWith(itemsLink)));
+        }
+
+        @Test
+        @DisplayName("Should return 404 Not Found when item ID does not exist")
+        void findOrderItem_whenItemIdNotExists_shouldReturnNotFound() throws Exception {
+            UUID orderId = UUID.randomUUID();
+            UUID itemId = UUID.randomUUID();
+
+            given(orderItemService.findByOrderIdAndItemId(orderId, itemId))
+                    .willThrow(new OrderItemNotFoundException(itemId));
+
+            mockMvc.perform(get(BASE_API_URL + "/{orderId}/items/{itemId}", orderId, itemId))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.title", is("Order Item Not Found")))
+                    .andExpect(jsonPath("$.detail", containsString(itemId.toString())));
+        }
+
+        @Test
+        @DisplayName("Should return 404 Not Found when item ID exists but for different order ID")
+        void findOrderItem_whenItemBelongsToDifferentOrder_shouldReturnNotFound() throws Exception {
+            UUID orderId = UUID.randomUUID();
+            UUID itemId = UUID.randomUUID();
+
+            given(orderItemService.findByOrderIdAndItemId(orderId, itemId))
+                    .willThrow(new OrderItemNotFoundException(orderId, itemId));
+
+            mockMvc.perform(get(BASE_API_URL + "/{orderId}/items/{itemId}", orderId, itemId))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.title", is("Order Item Not Found")))
+                    .andExpect(jsonPath("$.detail", containsString("item with ID " + itemId)))
+                    .andExpect(jsonPath("$.detail",
+                            containsString("not found within order ID " + orderId)));
+        }
+
+        @Test
+        @DisplayName("Should return 400 Bad Request when orderId is not a valid UUID")
+        void findOrderItem_whenOrderIdIsInvalid_shouldReturnBadRequest() throws Exception {
+            String invalidOrderId = "invalid-order-uuid";
+            UUID validItemId = UUID.randomUUID();
+
+            mockMvc.perform(get(BASE_API_URL + "/{orderId}/items/{itemId}", invalidOrderId, validItemId))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        @DisplayName("Should return 400 Bad Request when itemId is not a valid UUID")
+        void findOrderItem_whenItemIdIsInvalid_shouldReturnBadRequest() throws Exception {
+            UUID validOrderId = UUID.randomUUID();
+            String invalidItemId = "invalid-item-uuid";
+
+            mockMvc.perform(get(BASE_API_URL + "/{orderId}/items/{itemId}", validOrderId, invalidItemId))
+                    .andExpect(status().isBadRequest());
         }
     }
 }
