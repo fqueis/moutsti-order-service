@@ -17,16 +17,20 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.quality.Strictness;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
 import info.mouts.orderservice.domain.OrderStatus;
 import info.mouts.orderservice.dto.OrderRequestDTO;
 import info.mouts.orderservice.service.OrderService;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
+@MockitoSettings(strictness = Strictness.LENIENT)
 @ExtendWith(MockitoExtension.class)
 public class KafkaConsumerServiceTest {
     @Mock
@@ -38,7 +42,9 @@ public class KafkaConsumerServiceTest {
     @Mock
     private ValueOperations<String, String> valueOperations;
 
-    @InjectMocks
+    // Use SimpleMeterRegistry instead of mocking
+    private MeterRegistry meterRegistry = new SimpleMeterRegistry();
+
     private KafkaConsumerService kafkaConsumerService;
 
     private OrderRequestDTO orderRequestTestDTO;
@@ -60,6 +66,9 @@ public class KafkaConsumerServiceTest {
         testRedisKey = IDEMPOTENCY_KEY_PREFIX + testKey;
 
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+
+        // Simply create the service with the SimpleMeterRegistry
+        kafkaConsumerService = new KafkaConsumerService(orderService, redisTemplate, meterRegistry);
     }
 
     @Test
@@ -117,5 +126,4 @@ public class KafkaConsumerServiceTest {
         verify(orderService).processIncomingOrder(orderRequestTestDTO, testKey);
         verify(valueOperations, never()).set(testRedisKey, STATUS_COMPLETED, COMPLETED_TTL);
     }
-
 }

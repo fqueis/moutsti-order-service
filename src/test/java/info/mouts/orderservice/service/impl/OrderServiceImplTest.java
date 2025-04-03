@@ -21,11 +21,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -40,6 +40,8 @@ import info.mouts.orderservice.dto.OrderRequestDTO;
 import info.mouts.orderservice.exception.OrderNotFoundException;
 import info.mouts.orderservice.mapper.OrderMapper;
 import info.mouts.orderservice.repository.OrderRepository;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -54,7 +56,11 @@ public class OrderServiceImplTest {
     @Mock
     private OrderMapper orderMapper;
 
-    @InjectMocks
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
+    private MeterRegistry meterRegistry = new SimpleMeterRegistry();
+
     private OrderServiceImpl orderService;
 
     @Captor
@@ -68,6 +74,8 @@ public class OrderServiceImplTest {
 
     @BeforeEach
     public void setUp() {
+        orderService = new OrderServiceImpl(orderRepository, orderMapper, eventPublisher, meterRegistry);
+
         orderRequestDTO = new OrderRequestDTO();
         OrderItemRequestDTO itemDTO1 = new OrderItemRequestDTO();
         itemDTO1.setProductId("prod-1");
@@ -109,7 +117,6 @@ public class OrderServiceImplTest {
         savedOrder.setItems(mappedOrder.getItems());
 
         when(orderRepository.save(any(Order.class))).thenReturn(savedOrder);
-
     }
 
     @Test
