@@ -13,12 +13,23 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Global exception handler for the REST controllers.
+ * Uses {@link RestControllerAdvice} to centralize exception handling logic.
+ * Maps specific exceptions to appropriate HTTP status codes and formats
+ * responses
+ * using the Problem Details for HTTP APIs standard (RFC 7807).
+ */
 @RestControllerAdvice
 @Slf4j
 public class RestExceptionHandler {
     /**
      * Capture {@link OrderNotFoundException} and returns HTTP 404 Not Found.
      * Uses the ProblemDetail (RFC 7807) format for the response.
+     *
+     * @param ex      The caught {@link OrderNotFoundException}.
+     * @param request The current web request.
+     * @return A {@link ProblemDetail} object representing the error.
      */
     @ExceptionHandler(OrderNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
@@ -36,6 +47,10 @@ public class RestExceptionHandler {
     /**
      * Capture {@link OrderItemNotFoundException} and returns HTTP 404 Not Found.
      * Uses the ProblemDetail (RFC 7807) format for the response.
+     *
+     * @param ex      The caught {@link OrderItemNotFoundException}.
+     * @param request The current web request.
+     * @return A {@link ProblemDetail} object representing the error.
      */
     @ExceptionHandler(OrderItemNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
@@ -53,7 +68,13 @@ public class RestExceptionHandler {
     /**
      * Capture {@link MethodArgumentTypeMismatchException} and returns HTTP 400 Bad
      * Request.
+     * This typically occurs when a path variable or request parameter expected to
+     * be a UUID cannot be parsed correctly.
      * Uses the ProblemDetail (RFC 7807) format for the response.
+     *
+     * @param ex      The caught {@link MethodArgumentTypeMismatchException}.
+     * @param request The current web request.
+     * @return A {@link ProblemDetail} object representing the error.
      */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
@@ -70,8 +91,15 @@ public class RestExceptionHandler {
     }
 
     /**
-     * Capture any {@link Exception} and returns HTTP 500 Internal Server Error.
-     * Uses the ProblemDetail (RFC 7807) format for the response.
+     * Catches any other unhandled exceptions that may occur during request
+     * processing.
+     * Returns HTTP 500 Internal Server Error.
+     * Uses the ProblemDetail (RFC 7807) format for the response, but with a generic
+     * message to avoid exposing internal details.
+     *
+     * @param ex      The caught {@link Exception}.
+     * @param request The current web request.
+     * @return A {@link ProblemDetail} object representing the error.
      */
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)

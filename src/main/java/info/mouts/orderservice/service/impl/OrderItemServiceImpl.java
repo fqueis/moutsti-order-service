@@ -13,16 +13,34 @@ import info.mouts.orderservice.repository.OrderItemRepository;
 import info.mouts.orderservice.service.OrderItemService;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Implementation of the {@link OrderItemService} interface.
+ * Provides functionality to retrieve order items.
+ * Includes caching capabilities.
+ */
 @Service
 @Slf4j
 public class OrderItemServiceImpl implements OrderItemService {
 
     private final OrderItemRepository orderItemRepository;
 
+    /**
+     * Constructs an instance of {@code OrderItemServiceImpl}.
+     *
+     * @param orderItemRepository The repository for order item data access.
+     */
     public OrderItemServiceImpl(OrderItemRepository orderItemRepository) {
         this.orderItemRepository = orderItemRepository;
     }
 
+    /**
+     * Finds all order items associated with a specific order ID.
+     * Uses caching based on the order ID.
+     *
+     * @param orderId The UUID of the order.
+     * @return A {@link List} of {@link OrderItem} entities associated with the
+     *         given order ID.
+     */
     @Override
     @Transactional(readOnly = true)
     @Cacheable(cacheNames = "order::items", key = "#orderId")
@@ -32,6 +50,15 @@ public class OrderItemServiceImpl implements OrderItemService {
         return orderItemRepository.findByOrder_Id(orderId);
     }
 
+    /**
+     * Finds a specific order item by its unique identifier (UUID).
+     * Uses caching based on the item ID.
+     *
+     * @param itemId The UUID of the order item to find.
+     * @return The {@link OrderItem} entity if found.
+     * @throws OrderItemNotFoundException If no order item is found with the given
+     *                                    ID.
+     */
     @Override
     @Transactional(readOnly = true)
     @Cacheable(cacheNames = "order::item", key = "#itemId")

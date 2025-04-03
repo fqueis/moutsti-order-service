@@ -27,6 +27,12 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Implementation of the {@link OrderService} interface.
+ * Handles the business logic related to order processing, retrieval, and
+ * management.
+ * Includes caching and metric collection functionalities.
+ */
 @Service
 @Slf4j
 @CacheConfig(cacheNames = "order")
@@ -42,6 +48,14 @@ public class OrderServiceImpl implements OrderService {
     private Counter ordersFailedCounter;
     private Timer orderProcessingTimer;
 
+    /**
+     * Constructs an instance of {@code OrderServiceImpl}.
+     *
+     * @param orderRepository The repository for order data access.
+     * @param orderMapper     The mapper for converting between DTOs and entities.
+     * @param eventPublisher  The application event publisher for order events.
+     * @param meterRegistry   The registry for collecting metrics.
+     */
     public OrderServiceImpl(OrderRepository orderRepository, OrderMapper orderMapper,
             ApplicationEventPublisher eventPublisher, MeterRegistry meterRegistry) {
         this.orderRepository = orderRepository;
@@ -52,6 +66,23 @@ public class OrderServiceImpl implements OrderService {
         initializeMetrics(this.meterRegistry);
     }
 
+    /**
+     * Processes an incoming order request, saves it, and publishes an event.
+     * This method is transactional and caches the resulting order by its ID.
+     * Metrics are recorded for received, processed, and failed orders, as well as
+     * processing time.
+     *
+     * @param request        The {@link OrderRequestDTO} containing the order
+     *                       details.
+     * @param idempotencyKey A unique key to ensure idempotency of the order
+     *                       processing.
+     * @return The saved {@link Order} entity after processing.
+     * @throws IllegalArgumentException        If the order request does not contain
+     *                                         items.
+     * @throws DataIntegrityViolationException If there's a data integrity issue
+     *                                         during persistence (e.g., duplicate
+     *                                         idempotency key).
+     */
     @Override
     @Transactional
     @CachePut(key = "#result.id")
@@ -110,6 +141,15 @@ public class OrderServiceImpl implements OrderService {
 
     }
 
+    /**
+     * Finds an order by its unique identifier (UUID).
+     * Uses caching to improve performance. If the order is not found in the cache,
+     * it retrieves it from the database.
+     *
+     * @param orderId The UUID of the order to find.
+     * @return The {@link Order} entity if found.
+     * @throws OrderNotFoundException If no order is found with the given ID.
+     */
     @Override
     @Transactional(readOnly = true)
     @Cacheable(key = "#orderId")
@@ -123,6 +163,13 @@ public class OrderServiceImpl implements OrderService {
                 });
     }
 
+    /**
+     * Retrieves all orders from the database.
+     * Note: This might be inefficient for large datasets. Consider using
+     * pagination.
+     *
+     * @return A {@link List} of all {@link Order} entities.
+     */
     @Override
     @Transactional(readOnly = true)
     public List<Order> findAll() {
@@ -131,6 +178,13 @@ public class OrderServiceImpl implements OrderService {
         return orderRepository.findAll();
     }
 
+    /**
+     * Retrieves a paginated list of all orders from the database.
+     *
+     * @param pageable The pagination information (page number, size, sort).
+     * @return A {@link Page} containing the {@link Order} entities for the
+     *         requested page.
+     */
     @Override
     @Transactional(readOnly = true)
     public Page<Order> findAll(Pageable pageable) {
@@ -141,9 +195,11 @@ public class OrderServiceImpl implements OrderService {
 
     /**
      * Calculates the total amount for the given order based on its items.
-     * 
+     * Sums the product of price and quantity for each item.
+     *
      * @param order The order entity (must have items loaded).
-     * @return The calculated total amount.
+     * @return The calculated total amount as a {@link BigDecimal}. Returns
+     *         {@code BigDecimal.ZERO} if the order or its items are null/empty.
      */
     private BigDecimal calculateTotalAmount(Order order) {
         if (order == null || order.getItems() == null || order.getItems().isEmpty()) {
@@ -156,9 +212,11 @@ public class OrderServiceImpl implements OrderService {
     }
 
     /**
-     * Initializes the metrics for the order service.
-     * 
-     * @param registry The meter registry to register the metrics.
+     * Initializes the Micrometer metrics for the order service.
+     * Registers counters for received, processed, and failed orders, and a timer
+     * for processing duration.
+     *
+     * @param registry The meter registry to register the metrics with.
      */
     private void initializeMetrics(MeterRegistry registry) {
         this.ordersReceivedCounter = Counter.builder("orders.received")
