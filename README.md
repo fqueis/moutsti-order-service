@@ -6,16 +6,12 @@ Este projeto implementa o `order-service`, uma solução de microsserviço desen
 
 ## Descrição do Desafio
 
-1.  Receber pedidos de um sistema externo "A" via **Apache Kafka**.
-2.  Garantir o processamento **idempotente** das mensagens recebidas utilizando **Redis**.
+1.  Receber pedidos de um sistema externo "A".
+2.  Garantir o processamento **idempotente** das mensagens recebidas.
 3.  Processar o pedido, calculando o valor total e gerenciando seu status.
-4.  Persistir os dados do pedido e seus itens em um banco de dados **PostgreSQL**.
-5.  Notificar um sistema externo "B" sobre pedidos processados, publicando um evento em outro tópico **Kafka**, utilizando **eventos internos do Spring (`@TransactionalEventListener`)** para garantir o envio após o commit da transação principal.
-6.  Expor uma **API RESTful** para consulta de pedidos e seus itens, seguindo princípios **HATEOAS**.
-7.  Disponibilizar documentação interativa da API via **Swagger UI**.
-8.  Implementar **cache** com **Redis** para otimizar as consultas da API.
-9.  Incluir mecanismos de **observabilidade** através de **métricas (Prometheus)** e **health checks (Actuator)**.
-10. Fornecer configuração completa para execução em ambiente containerizado usando **Docker** e **Docker Compose**.
+4.  Persistir os dados do pedido e seus itens em um banco de dados.
+5.  Notificar um sistema externo "B" sobre pedidos processados.
+6.  Expor uma **API RESTful** para consulta de pedidos e seus itens.
 
 ## Funcionalidades Implementadas
 
