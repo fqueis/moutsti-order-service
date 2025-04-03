@@ -14,6 +14,16 @@ public interface OrderItemService {
     List<OrderItem> findOrderItemsByOrderId(UUID orderId);
 
     /**
+     * Finds an order item by its unique ID, ensuring it belongs to the specified
+     * order ID.
+     *
+     * @param orderId The UUID of the parent order.
+     * @param itemId  The UUID of the item to find.
+     * @return The order item with the given ID.
+     */
+    OrderItem findByOrderIdAndItemId(UUID orderId, UUID itemId);
+
+    /**
      * Finds an order item by its unique ID.
      * 
      * @param itemId The ID of the order item to find.

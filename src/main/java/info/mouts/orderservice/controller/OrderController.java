@@ -192,7 +192,7 @@ public class OrderController {
     })
     public ResponseEntity<OrderItemResponseDTO> findOrderItem(@PathVariable UUID orderId,
             @PathVariable UUID itemId) {
-        OrderItem orderItem = orderItemService.findById(itemId);
+        OrderItem orderItem = orderItemService.findByOrderIdAndItemId(orderId, itemId);
         OrderItemResponseDTO responseDTO = orderMapper.toOrderItemResponseDto(orderItem);
 
         responseDTO.add(linkTo(methodOn(OrderController.class).findOrderItem(orderId, itemId)).withSelfRel());
