@@ -1,6 +1,6 @@
 # Order Service - Desafio Backend Mouts TI
 
-Este projeto implementa o `order-service`, uma solução de microsserviço desenvolvida como parte do desafio proposto pela Mouts IT. O serviço é responsável por:
+Este projeto implementa o `order-service`, uma solução de microsserviço desenvolvida como parte do desafio proposto pela Mouts TI.
 
 ![Mouts TI challenge image](docs/images/challenge.jpg)
 
@@ -111,7 +111,6 @@ Este projeto implementa o `order-service`, uma solução de microsserviço desen
 
 - O foco da observabilidade nesta implementação foi fornecer **Métricas** essenciais (contadores de eventos, timers de processamento) via Micrometer, expostas para **Prometheus** através do endpoint `/actuator/prometheus`.
 - **Health Checks** via Actuator (`/actuator/health`) também foram habilitados para monitorar o status da aplicação e suas conexões com dependências (Banco, Redis, Kafka).
-- Tracing distribuído e logging estruturado avançado foram omitidos nesta fase para simplificação, mas são melhorias futuras importantes.
 
 </details>
 
@@ -227,3 +226,5 @@ Retorna os detalhes de um pedido específico, incluindo links para si mesmo e pa
 - **Health Check:** `http://localhost:8080/actuator/health` (Verifique status `UP` e detalhes dos componentes).
 - **Métricas (Prometheus):** `http://localhost:8080/actuator/prometheus` (Verifique métricas como `orders_received_total`, `http_server_requests_seconds_count`, etc.).
 - **Visualização (Grafana):** `http://localhost:3000` (Configure datasource Prometheus apontando para `http://prometheus:9090`).
+
+![Grafana Dashboard UI](docs/images/grafana.png)
