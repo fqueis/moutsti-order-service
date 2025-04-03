@@ -68,4 +68,36 @@ public class OrderItemServiceImpl implements OrderItemService {
         return orderItemRepository.findById(itemId).orElseThrow(() -> new OrderItemNotFoundException(itemId));
     }
 
+    /**
+     * Finds a specific order item by its unique identifier (UUID) and validates
+     * whether it belongs to the parent order with the given ID.
+     * Uses caching based on the item ID.
+     *
+     * @param orderId The UUID of the expected parent order
+     * @param itemId  The UUID of the order item to find.
+     * @return The {@link OrderItem} entity if found.
+     * @throws OrderItemNotFoundException If no order item is found with the given
+     *                                    ID.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "order::item", key = "#orderId + '_' + #itemId")
+    public OrderItem findByOrderIdAndItemId(UUID orderId, UUID itemId) {
+        log.debug("Cache miss, attempting to find order item by ID: {} for order ID: {}", itemId, orderId);
+
+        OrderItem item = orderItemRepository.findById(itemId)
+                .orElseThrow(() -> {
+                    log.warn("Order item not found for ID: {}", itemId);
+                    return new OrderItemNotFoundException(orderId, itemId);
+                });
+
+        if (item.getOrder() == null || !item.getOrder().getId().equals(orderId)) {
+            log.warn("Order item {} found, but it does not belong to order {}", itemId, orderId);
+            throw new OrderItemNotFoundException(orderId, itemId);
+        }
+
+        log.info("Order item {} found for order {}", itemId, orderId);
+        return item;
+    }
+
 }
