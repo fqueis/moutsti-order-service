@@ -68,7 +68,7 @@ management:
     health:
       show-details: always
     prometheus:
-      enabled: true
+      access: read-only
   metrics:
     tags:
       application: ${spring.application.name}
