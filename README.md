@@ -223,4 +223,4 @@ Retorna os detalhes de um pedido específico, incluindo links para si mesmo e pa
 - **Métricas (Prometheus):** `http://localhost:8080/actuator/prometheus` (Verifique métricas como `orders_received_total`, `http_server_requests_seconds_count`, etc.).
 - **Visualização (Grafana):** `http://localhost:3000` (Configure datasource Prometheus apontando para `http://prometheus:9090`).
 
-![Grafana Dashboard UI](docs/images/grafana.png)
+![Grafana Dashboard UI](docs/images/grafana-2.png)
