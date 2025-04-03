@@ -20,7 +20,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -37,6 +36,8 @@ import info.mouts.orderservice.dto.OrderRequestDTO;
 import info.mouts.orderservice.mapper.OrderMapper;
 import info.mouts.orderservice.repository.OrderRepository;
 import info.mouts.orderservice.util.KafkaUtils;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 /**
  * Tests for the Kafka Dead Letter Topic (DLT) consumer service.
@@ -56,7 +57,8 @@ public class DltConsumerServiceTest {
     @Mock
     private OrderMapper orderMapper;
 
-    @InjectMocks
+    private MeterRegistry meterRegistry = new SimpleMeterRegistry();
+
     private DltConsumerService dltConsumerService;
 
     private String dltTopic = "orders.dlt.v1";
@@ -93,6 +95,9 @@ public class DltConsumerServiceTest {
 
         // Mock the object mapper to return our DTO when deserializing the payload
         when(objectMapper.readValue(eq(payloadBytes), eq(OrderRequestDTO.class))).thenReturn(dto);
+
+        // Create the service with a real SimpleMeterRegistry
+        dltConsumerService = new DltConsumerService(orderRepository, objectMapper, orderMapper, meterRegistry);
     }
 
     @Test
