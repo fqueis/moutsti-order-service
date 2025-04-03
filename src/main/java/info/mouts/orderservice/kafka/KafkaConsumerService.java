@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 import info.mouts.orderservice.dto.OrderRequestDTO;
 import info.mouts.orderservice.service.OrderService;
 import info.mouts.orderservice.util.KafkaUtils;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -21,6 +23,11 @@ import lombok.extern.slf4j.Slf4j;
 public class KafkaConsumerService {
     private final OrderService orderService;
     private final StringRedisTemplate redisTemplate;
+    private final MeterRegistry meterRegistry;
+
+    private Counter receivedOrdersCounter;
+    private Counter processedOrdersCounter;
+    private Counter failedOrdersCounter;
 
     /**
      * Constructs an instance of {@code KafkaConsumerService}.
@@ -29,9 +36,13 @@ public class KafkaConsumerService {
      * @param redisTemplate The Spring Redis template for interacting with Redis
      *                      (used for idempotency).
      */
-    public KafkaConsumerService(OrderService orderService, StringRedisTemplate redisTemplate) {
+    public KafkaConsumerService(OrderService orderService, StringRedisTemplate redisTemplate,
+            MeterRegistry meterRegistry) {
         this.orderService = orderService;
         this.redisTemplate = redisTemplate;
+        this.meterRegistry = meterRegistry;
+
+        initializeMetrics(this.meterRegistry);
     }
 
     /**
@@ -55,12 +66,15 @@ public class KafkaConsumerService {
             @Header(name = KafkaUtils.IDEMPOTENCY_KEY_HEADER, required = true) String idempotencyKey) {
         log.info("Received incoming order request to process");
 
+        receivedOrdersCounter.increment();
+
         String redisKey = KafkaUtils.IDEMPOTENCY_KEY_PREFIX + idempotencyKey;
 
         Boolean lockAcquired = redisTemplate.opsForValue().setIfAbsent(redisKey,
                 KafkaUtils.PROCESSING_STATUS, KafkaUtils.PROCESSING_TTL);
 
         if (Boolean.FALSE.equals(lockAcquired)) {
+            failedOrdersCounter.increment();
             handleExistingKey(idempotencyKey, redisKey);
             return;
         }
@@ -72,8 +86,10 @@ public class KafkaConsumerService {
             orderService.processIncomingOrder(orderRequestDTO, idempotencyKey);
             redisTemplate.opsForValue().set(redisKey, KafkaUtils.PROCESSED_STATUS,
                     KafkaUtils.PROCESSED_TTL);
+            processedOrdersCounter.increment();
         } catch (Exception e) {
             log.error("Error processing message for idempotency key {}: {}", idempotencyKey, e.getMessage(), e);
+            failedOrdersCounter.increment();
             throw e;
         }
     }
@@ -105,5 +121,24 @@ public class KafkaConsumerService {
             log.error("Skipping processing for key {} due to unexpected status in Redis: {}", idempotencyKey,
                     currentStatus);
         }
+    }
+
+    /**
+     * Initializes the Micrometer metrics for the order service.
+     * Registers counters for received, processed, and failed orders
+     *
+     * @param registry The meter registry to register the metrics with.
+     */
+    private void initializeMetrics(MeterRegistry registry) {
+        this.receivedOrdersCounter = Counter.builder("orders.received")
+                .description("Total number of orders received from Kafka")
+                .register(registry);
+        this.processedOrdersCounter = Counter.builder("orders.processed")
+                .description("Total number of orders successfully processed")
+                .register(registry);
+        this.failedOrdersCounter = Counter.builder("orders.failed")
+                .description("Total number of orders failed during processing (before DLT)")
+                .tag("reason", "processing_exception")
+                .register(registry);
     }
 }

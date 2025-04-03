@@ -22,7 +22,6 @@ import info.mouts.orderservice.exception.OrderNotFoundException;
 import info.mouts.orderservice.mapper.OrderMapper;
 import info.mouts.orderservice.repository.OrderRepository;
 import info.mouts.orderservice.service.OrderService;
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
@@ -43,9 +42,6 @@ public class OrderServiceImpl implements OrderService {
     private final ApplicationEventPublisher eventPublisher;
     private final MeterRegistry meterRegistry;
 
-    private Counter ordersReceivedCounter;
-    private Counter ordersProcessedCounter;
-    private Counter ordersFailedCounter;
     private Timer orderProcessingTimer;
 
     /**
@@ -87,8 +83,6 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     @CachePut(key = "#result.id")
     public Order processIncomingOrder(OrderRequestDTO request, String idempotencyKey) {
-        this.ordersReceivedCounter.increment();
-
         return this.orderProcessingTimer.record(() -> {
             log.info("Processing incoming order for idempotency key: {}", idempotencyKey);
 
@@ -120,8 +114,6 @@ public class OrderServiceImpl implements OrderService {
 
                 log.debug("Publishing a processed order event for Order ID: {}", savedOrder.getId());
 
-                this.ordersProcessedCounter.increment();
-
                 OrderProcessedEvent event = new OrderProcessedEvent(this, savedOrder);
                 eventPublisher.publishEvent(event);
 
@@ -130,15 +122,12 @@ public class OrderServiceImpl implements OrderService {
                 return savedOrder;
             } catch (DataIntegrityViolationException e) {
                 log.error("Data integrity violation while saving order for key {}: {}", idempotencyKey, e.getMessage());
-                this.ordersFailedCounter.increment();
                 throw e;
             } catch (Exception e) {
                 log.error("Failed to save processed order for key {}: {}", idempotencyKey, e.getMessage(), e);
-                this.ordersFailedCounter.increment();
                 throw e;
             }
         });
-
     }
 
     /**
@@ -213,22 +202,11 @@ public class OrderServiceImpl implements OrderService {
 
     /**
      * Initializes the Micrometer metrics for the order service.
-     * Registers counters for received, processed, and failed orders, and a timer
-     * for processing duration.
+     * Registers a timer for processing duration.
      *
      * @param registry The meter registry to register the metrics with.
      */
     private void initializeMetrics(MeterRegistry registry) {
-        this.ordersReceivedCounter = Counter.builder("orders.received")
-                .description("Total number of orders received from Kafka")
-                .register(registry);
-        this.ordersProcessedCounter = Counter.builder("orders.processed")
-                .description("Total number of orders successfully processed")
-                .register(registry);
-        this.ordersFailedCounter = Counter.builder("orders.failed")
-                .description("Total number of orders failed during processing (before DLT)")
-                .tag("reason", "processing_exception")
-                .register(registry);
         this.orderProcessingTimer = Timer.builder("orders.processing.time")
                 .description("Time taken to process an incoming order")
                 .publishPercentiles(0.5, 0.95, 0.99)
